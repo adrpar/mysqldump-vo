@@ -1,0 +1,28 @@
+In order to use this tool, you need the MySQL sources of the MySQL version you are using.
+
+
+To install
+----------
+
+Dependencies: MySQL sources, cmake
+
+1) Download the mysql source corresponding to your installed
+   version. Building mysql from scratch is recommended.
+
+   Note: ONLY MYSQL VERSION 5.5 AND ABOVE ARE CURRENTLY 
+   	 SUPPORTED (I.E. TESTED - COULD WORK WITH OTHERS...)
+
+2) edit CMakeList.txt accordingly to point to the directory 
+   where mysql is installed.
+
+3) edit CMakeList.txt accordingly to point to the directory
+   of the mysql sources
+
+4) mkdir build
+   cd build
+
+5) cmake ..
+
+6) make
+
+7) DONE: you can now user mysqldump_vo
