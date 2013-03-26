@@ -12,6 +12,24 @@ In order to use this tool, you need the MySQL sources of the MySQL version you
 are using.
 
 
+UCDs - Unit support
+-------------------
+
+This tool will write UCD and unit information into the VOTable output, if they
+are defined in the columns comment in a special form. Since this was designed
+to work with Daiquiri-Web, UCD and unit will be safed in a web friednly way
+using JSONs.
+
+To add UCD and unit information to your columns comment section, add the following
+with the given format:
+
+CREATE TABLE foo (bar1 INT COMMENT 'DQIMETA={"unit":"fooUnit","ucd":"fooUCD; barUCD"}', 
+				  bar2 DOUBLE COMMENT 'DQIMETA={"unit":"fooUnit","ucd":"fooUCD; barUCD"}',
+				  ...);
+
+You can also add additional information to the JSON is you need it somewhere else.
+
+
 To install
 ----------
 

@@ -59,6 +59,8 @@
 #include "mysql_version.h"
 #include "mysqld_error.h"
 
+#include "json.h"
+
 #include <welcome_copyright_notice.h> /* ORACLE_WELCOME_COPYRIGHT_NOTICE */
 
 /* Exit codes */
@@ -205,6 +207,7 @@ static int * fieldLenArray;
 int handleDATETIMEVOTableTypes(FILE *xml_file, char *typeStr, int len);
 int handleDECVOTableTypes(FILE *xml_file, char *typeStr, int len);
 int handleCHARVOTableTypes(FILE *xml_file, char *typeStr, int len);
+int voParseComment(char * comment, char **ucd, char **unit);
 void voTableBinRegisterNull(char* nullField, int len, my_bool isNull);
 int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len, MYSQL_FIELD *field, int *lenWritten, int lenField);
 void swapByteOrder16(unsigned short* us);
@@ -2092,8 +2095,26 @@ static void print_vo_row(FILE *xml_file, const char *row_name,
         } else if (strncmp(field->name, "Extra" , min(field->name_length, 5)) == 0) {
           continue;
         } else if (strncmp(field->name, "Comment", min(field->name_length, 7)) == 0) {
-          //HERE WE COULD INCLUDE UDF DATA AND STUFF... 
-          continue;
+          char * ucd = NULL;
+          char * unit = NULL;
+
+          voParseComment((*row)[i], &ucd, &unit);
+
+          if(ucd != NULL && strlen(ucd) > 0) {
+            fputc(' ', xml_file);
+            print_quoted_xml(xml_file, "ucd", 3, 1);
+            fputs("=\"", xml_file);
+            print_quoted_xml(xml_file, ucd, strlen(ucd), 0);
+            fputc('"', xml_file);
+          }
+
+          if(unit != NULL && strlen(unit) > 0) {
+            fputc(' ', xml_file);
+            print_quoted_xml(xml_file, "unit", 4, 1);
+            fputs("=\"", xml_file);
+            print_quoted_xml(xml_file, unit, strlen(unit), 0);
+            fputc('"', xml_file);
+          }
         }
 
         check_io(xml_file);
@@ -6201,6 +6222,104 @@ int handleCHARVOTableTypes(FILE *xml_file, char *typeStr, int len) {
   fputc('"', xml_file);
 
   return 1;
+}
+
+int voParseComment(char * comment, char **ucd, char **unit) {
+  char * jsonData;
+
+  //extract any JSON that might be in here holding our data
+  //comment option block is identified with DQIMETA=
+  char * dataStart = strstr(comment, "DQIMETA=");
+
+  if(dataStart == NULL) {
+    return 0;
+  }
+
+  //move to the beginning of the JSON part
+  dataStart += 8;
+
+  //go through the comment part to find the end of the JSON
+  int count = 0;
+  char * currDataPos = dataStart;
+  while(count >= 0) {
+    char * brackOpen = strchr(currDataPos, '{');
+    char * brackClose = strchr(currDataPos, '}');
+
+    if(brackOpen == NULL && brackClose == NULL) {
+      return 0;
+    }
+
+    if(brackOpen == NULL) {
+      currDataPos = brackClose + 1;
+      count = -1;
+      break;
+    }
+
+    if(brackOpen < brackClose) {
+      count++;
+      currDataPos = brackOpen + 1;
+      continue;
+    } else if (brackClose < brackOpen) {
+      count--;
+      currDataPos = brackClose + 1;
+    }
+
+    if(count == 0) {
+      count = -1;
+      break;
+    }
+  }
+
+  int strLen = currDataPos - dataStart;
+
+  jsonData = strndup(dataStart, strLen);
+  if(jsonData == NULL) {
+    die(666, "VOTable: Handling column comment ran out of memory");
+  }
+
+  //now that we have identified the JSON part, parse it for 'ucd' and 'unit'
+  json_settings settings;
+  memset(&settings, 0, sizeof (json_settings)); 
+  char error[256];
+
+  json_value * value = json_parse_ex(&settings, jsonData, error);
+
+  if(value == NULL) {
+    die(667, "VOTable: JSON error %s", error);
+  }
+
+  //loop through all elements in value, find 'ucd' and 'unit' (need to be on the top node)
+  if(value->type != json_object) {
+    die(668, "VOTable: JSON data has wrong format");
+  }
+
+  int i=0;
+  for(i=0; i<value->u.object.length; i++) {
+    if(strlen(value->u.object.values[i].name) >= 3 &&
+       strncmp(value->u.object.values[i].name, "ucd", 3) == 0) {
+        //sanity check
+        if(value->u.object.values[i].value->type == json_string) {
+          //it's a bingo!
+          *ucd = strndup(value->u.object.values[i].value->u.string.ptr, value->u.object.values[i].value->u.string.length);
+        }
+    }
+
+    if(strlen(value->u.object.values[i].name) >= 4 &&
+       strncmp(value->u.object.values[i].name, "unit", 4) == 0) {
+        //sanity check
+        if(value->u.object.values[i].value->type == json_string) {
+          //it's a bingo!
+          *unit = strndup(value->u.object.values[i].value->u.string.ptr, value->u.object.values[i].value->u.string.length);
+        }
+    }
+
+    if(*ucd != NULL && *unit != NULL) {
+      //done!
+      break;
+    }
+  }
+
+  json_value_free(value);
 }
 
 void vo_register_fieldLen(int i, int * lenArray, char *typeStr, int len) {
