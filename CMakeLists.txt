@@ -32,7 +32,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${MYSQL_INCLUDE_DIR} ${MYSQL_LIBRARIES} -fPI
 include_directories ("${PROJECT_SOURCE_DIR}" "${MYSQL_SOURCES_PATH}/include" "${MYSQL_SOURCES_PATH}/client" "${MYSQL_SOURCES_PATH}")
 
 file(GLOB FILES_SRC "${PROJECT_SOURCE_DIR}/src/*.h" "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.cc" "${PROJECT_SOURCE_DIR}/src/*.c")
-set(MYSQL_SRC "${MYSQL_SOURCES_PATH}/mysys/my_getopt.c"  "${MYSQL_SOURCES_PATH}/mysys/hash.c" "${MYSQL_SOURCES_PATH}/mysys/string.c" "${MYSQL_SOURCES_PATH}/libmysql/get_password.c" "${MYSQL_SOURCES_PATH}/mysys/my_delete.c" "${MYSQL_SOURCES_PATH}/mysys/mf_unixpath.c" "${MYSQL_SOURCES_PATH}/mysys/base64.c" "${MYSQL_SOURCES_PATH}/strings/llstr.c"  "${MYSQL_SOURCES_PATH}/sql-common/my_user.c")
+set(MYSQL_SRC "${MYSQL_SOURCES_PATH}/mysys/hash.c" "${MYSQL_SOURCES_PATH}/mysys/string.c" "${MYSQL_SOURCES_PATH}/libmysql/get_password.c" "${MYSQL_SOURCES_PATH}/mysys/my_delete.c" "${MYSQL_SOURCES_PATH}/mysys/mf_unixpath.c" "${MYSQL_SOURCES_PATH}/mysys/base64.c" "${MYSQL_SOURCES_PATH}/strings/llstr.c"  "${MYSQL_SOURCES_PATH}/sql-common/my_user.c")
 
 add_executable (mysqldump_vo ${FILES_SRC}  ${MYSQL_SRC})
 

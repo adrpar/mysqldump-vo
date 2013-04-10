@@ -53,6 +53,7 @@
 #include <stdarg.h>
 #include <base64.h>
 #include <limits.h>
+#include <math.h>
 
 #include "client_priv.h"
 #include "mysql.h"
@@ -90,6 +91,9 @@
 #define IGNORE_NONE 0x00 /* no ignore */
 #define IGNORE_DATA 0x01 /* don't dump data for this table */
 #define IGNORE_INSERT_DELAYED 0x02 /* table doesn't support INSERT DELAYED */
+
+inline int max ( int a, int b ) { return a > b ? a : b; }
+inline int min ( int a, int b ) { return a < b ? a : b; }
 
 /* general_log or slow_log tables under mysql database */
 static inline my_bool general_log_or_slow_log_tables(const char *db, 
@@ -6663,7 +6667,7 @@ int main(int argc, char **argv)
 
   compatible_mode_normal_str[0]= 0;
   default_charset= (char *)mysql_universal_client_charset;
-  bzero((char*) &ignore_table, sizeof(ignore_table));
+  memset(&ignore_table, 0, sizeof(ignore_table));
 
   exit_code= get_options(&argc, &argv);
   if (exit_code)
