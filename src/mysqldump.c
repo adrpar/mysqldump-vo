@@ -4082,13 +4082,13 @@ static void dump_table(char *table, char *db)
                 else
                 {
                   if(row[i] == NULL || length == 0) {
-                    if(opt_voBin == 2)
+                    if(opt_voBin == 2) {
                       voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 1);
-                    //else
-                    //  die(EX_MYSQLERR, "NULL not yet supported in BINARY implementation. User BINARY2 format");
+                    }
                   } else {
-                    if(opt_voBin == 2)
+                    if(opt_voBin == 2) {
                       voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 0);
+                    }
                   }
 
                   if(field->type == MYSQL_TYPE_TIMESTAMP ||
@@ -4106,8 +4106,13 @@ static void dump_table(char *table, char *db)
                     if(field->type == MYSQL_TYPE_TIMESTAMP ||
                        field->type == MYSQL_TYPE_DATETIME) {
 
-                      char *space = strstr(row[i], " ");
-                      *space = 'T';
+                      if(row[i] != NULL) {
+                        char *space = strstr(row[i], " ");
+
+                        if(space != NULL) {
+                          *space = 'T';
+                        }
+                      }
                     }
                   }
 
@@ -4150,11 +4155,16 @@ static void dump_table(char *table, char *db)
                     //we therefore will just do it anyways and decode it with an
                     //xtype="mysql:TIME"
 
-                      if(field->type == MYSQL_TYPE_TIMESTAMP ||
+                    if(field->type == MYSQL_TYPE_TIMESTAMP ||
                        field->type == MYSQL_TYPE_DATETIME) {
 
-                      char *space = strstr(row[i], " ");
-                      *space = 'T';
+                      if(row[i] != NULL) {
+                        char *space = strstr(row[i], " ");
+
+                        if(space != NULL) {
+                          *space = 'T';
+                        }
+                      }
                     }
                   }
 
@@ -4184,111 +4194,39 @@ static void dump_table(char *table, char *db)
               }
               else if (opt_voBin)
               {
-                if (opt_hex_blob && is_blob && length)
-                {
-                  //this is not NULL
-                  if(opt_voBin == 2)
+                if(row[i] == NULL || length == 0) {
+                  if(opt_voBin == 2) {
+                    voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 1);
+                  }
+                } else {
+                  if(opt_voBin == 2) {
                     voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 0);
-
-                  char *buffer;
-                  buffer = (char*)malloc(sizeof(ulong) + (length + 1) * sizeof(char));
-                  if(buffer != NULL) {
-                    *(ulong*)(buffer+0) = length;
-                    memcpy((void*)(buffer + 0 + sizeof(ulong)), row[i], length);
-                    buffer[sizeof(ulong) + length] = '\0';
-                  }
-
-                  if(lenBinRepr <= currPosBinRepr + sizeof(ulong) + length) {
-                    binRepr = (char*)my_realloc(binRepr, currPosBinRepr + sizeof(ulong) + length + lenBuffer, MYF(0));
-                    lenBinRepr = currPosBinRepr + sizeof(ulong) + length + lenBuffer;
-                  }
-
-                  memcpy((void*)(binRepr+currPosBinRepr), buffer, length);
-                  currPosBinRepr += length;
-                }
-                else
-                {
-                  if(row[i] == NULL || length == 0) {
-                    if(opt_voBin == 2)
-                      voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 1);
-                    //else
-                    //  die(EX_MYSQLERR, "NULL not yet supported in BINARY implementation. User BINARY2 format");
-                  } else {
-                    if(opt_voBin == 2)
-                      voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 0);
-                  }
-
-                  if(field->type == MYSQL_TYPE_TIMESTAMP ||
-                     field->type == MYSQL_TYPE_DATE ||
-                     field->type == MYSQL_TYPE_TIME ||
-                     field->type == MYSQL_TYPE_DATETIME) {
-                    //handle dates and convert into proper ISO8601 format
-                    //basically MySQL already got things quite right, we just need
-                    //to add a 'T' in between the date and time
-
-                    //TODO: Caveat: VOTable/ADQL does not support a sole TIME type,
-                    //we therefore will just do it anyways and decode it with an
-                    //xtype="mysql:TIME"
-
-                    if(field->type == MYSQL_TYPE_TIMESTAMP ||
-                       field->type == MYSQL_TYPE_DATETIME) {
-
-                      char *space = strstr(row[i], " ");
-                      *space = 'T';
-                    }
-                  }
-
-                  int newBuffLen = voTableBinCastFieldToBinary(strBuffer, lenBuffer, row[i], length, field, &lenWritten, fieldLenArray[i]);
-                  if(lenBinRepr <= currPosBinRepr + lenWritten) {
-                    binRepr = (char*)my_realloc(binRepr, currPosBinRepr + lenWritten + lenBuffer, MYF(0));
-                    lenBinRepr = currPosBinRepr + lenWritten + lenBuffer;
-                  }
-
-                  memcpy((void*)(binRepr+currPosBinRepr), strBuffer, lenWritten);
-                  currPosBinRepr += lenWritten;
-
-                  if(newBuffLen != lenBuffer) {
-                    strBuffer = my_realloc(strBuffer, lenBuffer, MYF(0));
                   }
                 }
-              }               
+
+                int newBuffLen = voTableBinCastFieldToBinary(strBuffer, lenBuffer, row[i], length, field, &lenWritten, fieldLenArray[i]);
+                if(lenBinRepr <= currPosBinRepr + lenWritten) {
+                  binRepr = (char*)my_realloc(binRepr, currPosBinRepr + lenWritten + lenBuffer, MYF(0));
+                  lenBinRepr = currPosBinRepr + lenWritten + lenBuffer;
+                }
+
+                memcpy((void*)(binRepr+currPosBinRepr), strBuffer, lenWritten);
+                currPosBinRepr += lenWritten;
+
+                if(newBuffLen != lenBuffer) {
+                  strBuffer = my_realloc(strBuffer, lenBuffer, MYF(0));
+                }
+              }
               else if (opt_vo && !opt_voBin)
               {
-                if (opt_hex_blob && is_blob && length)
-                {
-                  print_xml_tag(md_result_file, "\t\t", "", "TD", NULL,
-                                NULL, NullS);
-                  print_blob_as_hex(md_result_file, row[i], length);
-                }
-                else
-                {
-                  print_xml_tag(md_result_file, "\t\t", "", "TD", NULL, 
-                                NULL, NullS);
+                print_xml_tag(md_result_file, "\t\t", "", "TD", NULL, 
+                              NULL, NullS);
 
-                  if(field->type == MYSQL_TYPE_TIMESTAMP ||
-                     field->type == MYSQL_TYPE_DATE ||
-                     field->type == MYSQL_TYPE_TIME ||
-                     field->type == MYSQL_TYPE_DATETIME) {
-                    //handle dates and convert into proper ISO8601 format
-                    //basically MySQL already got things quite right, we just need
-                    //to add a 'T' in between the date and time
+                print_quoted_xml(md_result_file, row[i], length, 0);
 
-                    //TODO: Caveat: VOTable/ADQL does not support a sole TIME type,
-                    //we therefore will just do it anyways and decode it with an
-                    //xtype="mysql:TIME"
-
-                    if(field->type == MYSQL_TYPE_TIMESTAMP ||
-                       field->type == MYSQL_TYPE_DATETIME) {
-
-                      char *space = strstr(row[i], " ");
-                      *space = 'T';
-                    }
-                  }
-
-                  print_quoted_xml(md_result_file, row[i], length, 0);
-                }
                 fputs("</TD>\n", md_result_file);
-              }              else if (my_isalpha(charset_info, *ptr) ||
+              } 
+              else if (my_isalpha(charset_info, *ptr) ||
                        (*ptr == '-' && my_isalpha(charset_info, ptr[1])))
                 fputs("NULL", md_result_file);
               else if (field->type == MYSQL_TYPE_DECIMAL)
@@ -4322,6 +4260,13 @@ static void dump_table(char *table, char *db)
       }
       else if (opt_voBin)
       {
+        //add padding to nullField
+        if(opt_voBin == 2) {
+          for(i = 0; i < ((lenNullField * 8) - numFields); i++) {
+            voTableBinRegisterNull((char*)(binRepr+lenBase64Overflow), lenNullField, 0);
+          }
+        }
+
         //write the binary representation to the file...
         lenBase64Overflow = currPosBinRepr % 3;
 
@@ -4336,7 +4281,6 @@ static void dump_table(char *table, char *db)
           die(EX_MYSQLERR, "Error in base64 conversion.");
         }
 
-        //fwrite(nullField, lenNullField, 1, md_result_file);
         fwrite(tmp, needed_length - 1, 1, md_result_file);
 
         my_free(tmp);
@@ -5034,7 +4978,7 @@ static int dump_all_tables_in_db(char *database)
     fputs("</database>\n", md_result_file);
     check_io(md_result_file);
   } else if (opt_vo) {
-    fputs("</RESPIRCE>\n", md_result_file);
+    fputs("</RESOURCE>\n", md_result_file);
     check_io(md_result_file);
   }
   if (lock_tables)
@@ -6369,13 +6313,13 @@ void voTableBinRegisterNull(char* nullField, int len, my_bool isNull) {
     //byte
     if(i != len - 1) {
       char val = 0;
-      val = ((nullField[i+1] & 0x80) ? 1 : 0);
-      nullField[i] = nullField[i] & val;
+      val = ((nullField[i+1] & 0x80) ? 0x01 : 0);
+      nullField[i]= nullField[i] | val;
     }
   }
 
   if(isNull == 1) {
-    nullField[len-1] = nullField[len-1] | 0x01;
+    nullField[len - 1] = nullField[len - 1] | 0x01;
   }
 }
 
@@ -6393,9 +6337,7 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
       }
 
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          *(char*)buffer = CHAR_MAX;
-        }
+        *(char*)buffer = CHAR_MAX;
       } else {
         int32_t tmp;
         tmp = strtol(value, NULL, 0);
@@ -6417,9 +6359,7 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
 
       int32_t tmp;
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          tmp = SHRT_MAX;
-        }
+        tmp = SHRT_MAX;
       } else {
         tmp = strtol(value, NULL, 0);
       }
@@ -6444,9 +6384,7 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
       }
 
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          *(int32_t*)buffer = INT_MAX32;
-        }
+        *(int32_t*)buffer = INT_MAX32;
       } else {
         *(int32_t*)buffer = strtol(value, NULL, 0);
       }
@@ -6468,9 +6406,7 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
       }
 
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          *(int64_t*)buffer = LLONG_MAX;
-        }
+        *(int64_t*)buffer = LLONG_MAX;
       } else {
         *(int64_t*)buffer = strtoll(value, NULL, 0);
       }
@@ -6492,12 +6428,13 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
       }
 
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          *(float*)buffer = NAN;
-        }
+        *(float*)buffer = NAN;
       } else {
         *(float*)buffer = strtof(value, NULL);
       }
+
+      if(change_endian == 1)
+        swapByteOrder32((unsigned long*)(buffer+0));
 
       buffer[sizeof(float)] = '\0';
       *lenWritten = sizeof(float);
@@ -6514,12 +6451,13 @@ int voTableBinCastFieldToBinary(char *buffer, int lenBuff, char *value, int len,
       }
 
       if(value == NULL || strlen(value) == 0) {
-        if(opt_voBin == 1) {
-          *(double*)buffer = NAN;
-        }
+        *(double*)buffer = NAN;
       } else {
         *(double*)buffer = strtod(value, NULL);
       }
+
+      if(change_endian == 1)
+        swapByteOrder64((unsigned long long*)(buffer+0));
 
       buffer[sizeof(double)] = '\0';
       *lenWritten = sizeof(double);
