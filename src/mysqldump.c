@@ -53,7 +53,6 @@
 #include <stdarg.h>
 #include <base64.h>
 #include <limits.h>
-#include <math.h>
 
 #include "client_priv.h"
 #include "mysql.h"
@@ -92,8 +91,8 @@
 #define IGNORE_DATA 0x01 /* don't dump data for this table */
 #define IGNORE_INSERT_DELAYED 0x02 /* table doesn't support INSERT DELAYED */
 
-inline int max ( int a, int b ) { return a > b ? a : b; }
-inline int min ( int a, int b ) { return a < b ? a : b; }
+inline int my_max ( int a, int b ) { return a > b ? a : b; }
+inline int my_min ( int a, int b ) { return a < b ? a : b; }
 
 /* general_log or slow_log tables under mysql database */
 static inline my_bool general_log_or_slow_log_tables(const char *db, 
@@ -957,7 +956,7 @@ get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
                                     &err_ptr, &err_len);
       if (err_len)
       {
-        strmake(buff, err_ptr, min(sizeof(buff) - 1, err_len));
+        strmake(buff, err_ptr, my_min(sizeof(buff) - 1, err_len));
         fprintf(stderr, "Invalid mode to --compatible: %s\n", buff);
         exit(1);
       }
@@ -2052,13 +2051,13 @@ static void print_vo_row(FILE *xml_file, const char *row_name,
       else
       {
         //translate field name
-        if (strncmp(field->name, "Field" , min(field->name_length, 5)) == 0) {
+        if (strncmp(field->name, "Field" , my_min(field->name_length, 5)) == 0) {
           fputc(' ', xml_file);
           print_quoted_xml(xml_file, "name", 4, 1);
           fputs("=\"", xml_file);
           print_quoted_xml(xml_file, (*row)[i], lengths[i], 0);
           fputc('"', xml_file);
-        } else if (strncmp(field->name, "Type" , min(field->name_length, 4)) == 0) {
+        } else if (strncmp(field->name, "Type" , my_min(field->name_length, 4)) == 0) {
           fputc(' ', xml_file);
           print_quoted_xml(xml_file, "datatype", 8, 1);
           fputs("=\"", xml_file);
@@ -2088,17 +2087,17 @@ static void print_vo_row(FILE *xml_file, const char *row_name,
           }
 
           vo_register_fieldLen(currRow, fieldLenArray, (*row)[i], lengths[i]);
-        } else if (strncmp(field->name, "Null" , min(field->name_length, 4)) == 0) {
+        } else if (strncmp(field->name, "Null" , my_min(field->name_length, 4)) == 0) {
           //check if this column can be null
           if(*(*row)[i] == 'Y')
             canBeNull = TRUE;
-        } else if (strncmp(field->name, "Key" , min(field->name_length, 3)) == 0) {
+        } else if (strncmp(field->name, "Key" , my_min(field->name_length, 3)) == 0) {
           continue;
-        } else if (strncmp(field->name, "Default" , min(field->name_length, 7)) == 0) {
+        } else if (strncmp(field->name, "Default" , my_min(field->name_length, 7)) == 0) {
           continue;
-        } else if (strncmp(field->name, "Extra" , min(field->name_length, 5)) == 0) {
+        } else if (strncmp(field->name, "Extra" , my_min(field->name_length, 5)) == 0) {
           continue;
-        } else if (strncmp(field->name, "Comment", min(field->name_length, 7)) == 0) {
+        } else if (strncmp(field->name, "Comment", my_min(field->name_length, 7)) == 0) {
           char * ucd = NULL;
           char * unit = NULL;
 
@@ -5529,7 +5528,7 @@ static ulong find_set(TYPELIB *lib, const char *x, uint length,
 
       for (; pos != end && *pos != ','; pos++) ;
       var_len= (uint) (pos - start);
-      strmake(buff, start, min(sizeof(buff) - 1, var_len));
+      strmake(buff, start, my_min(sizeof(buff) - 1, var_len));
       find= find_type(buff, lib, FIND_TYPE_BASIC);
       if (!find)
       {
@@ -6004,30 +6003,30 @@ static my_bool get_view_structure(char *table, char* db)
 //if type is UNSIGNED, we will deliberately ignore this, use the type as if it
 //were not unsigned. However we issue a warning...
 const char *getVOTableType(char *typeStr, int len) {
-  if (strncmp(typeStr, "bool", min(len, 4)) == 0) {
+  if (strncmp(typeStr, "bool", my_min(len, 4)) == 0) {
     return VOTable_types_names[0];
-  } else if (strncmp(typeStr, "bit", min(len, 3)) == 0) {
+  } else if (strncmp(typeStr, "bit", my_min(len, 3)) == 0) {
     return VOTable_types_names[1];
-  } else if (strncmp(typeStr, "tinyint", min(len, 7)) == 0) {
+  } else if (strncmp(typeStr, "tinyint", my_min(len, 7)) == 0) {
     return VOTable_types_names[2];
-  } else if (strncmp(typeStr, "smallint", min(len, 8)) == 0) {
+  } else if (strncmp(typeStr, "smallint", my_min(len, 8)) == 0) {
     return VOTable_types_names[3];
-  } else if (strncmp(typeStr, "mediumint", min(len, 9)) == 0) {
+  } else if (strncmp(typeStr, "mediumint", my_min(len, 9)) == 0) {
     return VOTable_types_names[4];
-  } else if (strncmp(typeStr, "int", min(len, 3)) == 0) {
+  } else if (strncmp(typeStr, "int", my_min(len, 3)) == 0) {
     return VOTable_types_names[4];
-  } else if (strncmp(typeStr, "bigint", min(len, 6)) == 0) {
+  } else if (strncmp(typeStr, "bigint", my_min(len, 6)) == 0) {
     return VOTable_types_names[5];
-  } else if (strncmp(typeStr, "char", min(len, 4)) == 0) {
+  } else if (strncmp(typeStr, "char", my_min(len, 4)) == 0) {
     //handeled by array type
     return NULL;
-  } else if (strncmp(typeStr, "varchar", min(len, 7)) == 0) {
+  } else if (strncmp(typeStr, "varchar", my_min(len, 7)) == 0) {
     //handeled by array type
     return NULL;
-  } else if (strncmp(typeStr, "text", min(len, 4)) == 0) {
+  } else if (strncmp(typeStr, "text", my_min(len, 4)) == 0) {
     //handeled by array type
     return NULL;
-  } else if (strncmp(typeStr, "float", min(len, 5)) == 0) {
+  } else if (strncmp(typeStr, "float", my_min(len, 5)) == 0) {
     //need to handle float specifically, because if size larger 25, it is a double
     if(len > 7) {
       //this means there is a float(* present
@@ -6040,13 +6039,13 @@ const char *getVOTableType(char *typeStr, int len) {
     }
 
     return VOTable_types_names[8];
-  } else if (strncmp(typeStr, "double", min(len, 6)) == 0) {
+  } else if (strncmp(typeStr, "double", my_min(len, 6)) == 0) {
     return VOTable_types_names[9];
-  } else if (strncmp(typeStr, "date", min(len, 4)) == 0) {
+  } else if (strncmp(typeStr, "date", my_min(len, 4)) == 0) {
     return VOTable_types_names[6];
-  } else if (strncmp(typeStr, "time", min(len, 4)) == 0) {
+  } else if (strncmp(typeStr, "time", my_min(len, 4)) == 0) {
     return VOTable_types_names[6];
-  } else if (strncmp(typeStr, "year", min(len, 4)) == 0) {
+  } else if (strncmp(typeStr, "year", my_min(len, 4)) == 0) {
     return VOTable_types_names[4];
   }
 
@@ -6057,14 +6056,14 @@ const char *getVOTableType(char *typeStr, int len) {
 //we therefore will just do it anyways and decode it with an
 //xtype="mysql:TIME"
 int handleDATETIMEVOTableTypes(FILE *xml_file, char *typeStr, int len) {
-  if (strncmp(typeStr, "date", min(len, 4)) != 0 &&
-      strncmp(typeStr, "time", min(len, 4)) != 0) {
+  if (strncmp(typeStr, "date", my_min(len, 4)) != 0 &&
+      strncmp(typeStr, "time", my_min(len, 4)) != 0) {
 
     //not the type we are looking for...
     return 0;
   }
 
-  if (strncmp(typeStr, "time", min(len, 4)) == 0 && len == 4) {
+  if (strncmp(typeStr, "time", my_min(len, 4)) == 0 && len == 4) {
     //this is TIME...
     fputc(' ', xml_file);
     print_quoted_xml(xml_file, "xtype", 5, 1);
@@ -6089,9 +6088,9 @@ int handleDATETIMEVOTableTypes(FILE *xml_file, char *typeStr, int len) {
 }
 
 int handleDECVOTableTypes(FILE *xml_file, char *typeStr, int len) {
-  if (strncmp(typeStr, "dec", min(len, 3)) != 0 &&
-      strncmp(typeStr, "numeric", min(len, 7)) != 0 && 
-      strncmp(typeStr, "fixed", min(len, 5)) != 0) {
+  if (strncmp(typeStr, "dec", my_min(len, 3)) != 0 &&
+      strncmp(typeStr, "numeric", my_min(len, 7)) != 0 && 
+      strncmp(typeStr, "fixed", my_min(len, 5)) != 0) {
 
     //not the type we are looking for...
     return 0;
@@ -6133,9 +6132,9 @@ int handleDECVOTableTypes(FILE *xml_file, char *typeStr, int len) {
 }
 
 int handleCHARVOTableTypes(FILE *xml_file, char *typeStr, int len) {
-  if (strncmp(typeStr, "char", min(len, 4)) != 0 &&
-      strncmp(typeStr, "varchar", min(len, 7)) != 0 && 
-      strncmp(typeStr, "text", min(len, 4)) != 0) {
+  if (strncmp(typeStr, "char", my_min(len, 4)) != 0 &&
+      strncmp(typeStr, "varchar", my_min(len, 7)) != 0 && 
+      strncmp(typeStr, "text", my_min(len, 4)) != 0) {
 
     //not the type we are looking for...
     return 0;
@@ -6146,7 +6145,7 @@ int handleCHARVOTableTypes(FILE *xml_file, char *typeStr, int len) {
   fputc('"', xml_file);
 
   char tmp[256];
-  if (strncmp(typeStr, "text", min(len, 4)) == 0) {
+  if (strncmp(typeStr, "text", my_min(len, 4)) == 0) {
     strcpy(tmp, "*");
   } else {
     //parse length of field
@@ -6156,7 +6155,7 @@ int handleCHARVOTableTypes(FILE *xml_file, char *typeStr, int len) {
     sscanf(substr, "(%i)", &d);
 
 
-    if (strncmp(typeStr, "varchar", min(len, 7)) == 0) {
+    if (strncmp(typeStr, "varchar", my_min(len, 7)) == 0) {
       sprintf(tmp, "%i*", d);
     } else {
       sprintf(tmp, "%i", d);
@@ -6271,24 +6270,24 @@ int voParseComment(char * comment, char **ucd, char **unit) {
 }
 
 void vo_register_fieldLen(int i, int * lenArray, char *typeStr, int len) {
-  if (strncmp(typeStr, "char", min(len, 4)) != 0 &&
-      strncmp(typeStr, "varchar", min(len, 7)) != 0 && 
-      strncmp(typeStr, "text", min(len, 4)) != 0 &&
-      strncmp(typeStr, "date", min(len, 4)) != 0 &&
-        strncmp(typeStr, "time", min(len, 4)) != 0) {
+  if (strncmp(typeStr, "char", my_min(len, 4)) != 0 &&
+      strncmp(typeStr, "varchar", my_min(len, 7)) != 0 && 
+      strncmp(typeStr, "text", my_min(len, 4)) != 0 &&
+      strncmp(typeStr, "date", my_min(len, 4)) != 0 &&
+        strncmp(typeStr, "time", my_min(len, 4)) != 0) {
 
     lenArray[i] = 0;
     return;
   } 
 
-  if (strncmp(typeStr, "date", min(len, 4)) == 0 ||
-      strncmp(typeStr, "time", min(len, 4)) == 0) {
+  if (strncmp(typeStr, "date", my_min(len, 4)) == 0 ||
+      strncmp(typeStr, "time", my_min(len, 4)) == 0) {
 
       lenArray[i] = 25;
       return;
   } 
   
-  if (strncmp(typeStr, "text", min(len, 4)) == 0) {
+  if (strncmp(typeStr, "text", my_min(len, 4)) == 0) {
     lenArray[i] = 0;
     return;
   } else {
