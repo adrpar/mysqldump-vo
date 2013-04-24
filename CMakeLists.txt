@@ -39,3 +39,5 @@ add_executable (mysqldump_vo ${FILES_SRC}  ${MYSQL_SRC})
 TARGET_LINK_LIBRARIES(mysqldump_vo mysqlclient)
 
 SET_TARGET_PROPERTIES (mysqldump_vo PROPERTIES HAS_CXX TRUE)
+
+INSTALL(TARGETS mysqldump_vo RUNTIME DESTINATION bin)

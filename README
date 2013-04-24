@@ -47,15 +47,19 @@ Dependencies: MySQL sources, cmake
 3) edit CMakeList.txt accordingly to point to the directory
    of the mysql sources
 
-4) mkdir build
+4) set CMAKE_INSTALL_PREFIX to the desired location. This will
+   install mysqldump_vo in the specified directory.
+
+5) mkdir build
    cd build
 
-5) cmake ..
+6) cmake ..
 
-6) make
+7) make
 
-7) DONE: you can now user mysqldump_vo
+8) sudo make install
 
+9) DONE: you can now user mysqldump_vo
 
 Usage
 -----
