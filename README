@@ -1,6 +1,9 @@
 A fork of the mysqldump tool distributed with MySQL 5.5.28. Our version supports 
 dumping tables in the VOTable 1.3 format (BINARY and ASCII). 
 
+Further our version support remote dumping of TAB/CSV/... separated files, which
+in the original version of mysqldump only worked locally.
+
 VOTable 1.3 output has been validated with the latest STILTS votlint tool. Output 
 should thus conform to the standard (but we cannot guarantee this yet at this 
 BETA stage).
@@ -70,6 +73,10 @@ Use mysqldump_vo as you would use mysqldump. We have added the following two arg
 --vo-bin    VOTable BINARY serialisation - NULL values are assumed to be MAX_INT
 --vo-bin2   VOTable BINARY2 serialisation - the ONLY way to use binary VOTables 
 			(better NULL treatment)
+
+--tab-remote Tab-separated files from remotely located mysql servers - all options of original
+             --tab implementation are supported (i.e. --fields-terminated-by, --lines-terminated-by,
+             --fields-enclosed-by, --fields-optionally-enclosed-by, --fields-escaped-by)
 
 Certain restrictions still apply. There are various datatypes that cannot be represented 
 in VOTable yet (Error will be thrown, mainly date and time related types...). Just try 

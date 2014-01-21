@@ -117,7 +117,8 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_delayed=0,create_options=1,opt_quoted=0,opt_databases=0,
                 opt_alldbs=0,opt_create_db=0,opt_lock_all_tables=0,
                 opt_set_charset=0, opt_dump_date=1,
-                opt_autocommit=0,opt_disable_keys=1,opt_xml=0,opt_vo=0,
+                opt_autocommit=0,opt_disable_keys=1,opt_xml=0,opt_vo=0,opt_tabremote=0,
+                fieldterm_processed=0,linesterm_processed=0,enclosed_processed=0,
                 opt_delete_master_logs=0, tty_password=0,
                 opt_single_transaction=0, opt_comments= 0, opt_compact= 0,
                 opt_hex_blob=0, opt_order_by_primary=0, opt_ignore=0,
@@ -220,6 +221,7 @@ void vo_register_fieldLen(int i, int * lenArray, char *typeStr, int len);
 #define OPT_VOTABLE_TABLEDATA 250
 #define OPT_VOTABLE_BINARY 251
 #define OPT_VOTABLE_BINARY2 252
+#define OPT_TABREMOTE 253
 
 #define MASK_ANSI_QUOTES \
 (\
@@ -530,6 +532,9 @@ static struct my_option my_long_options[] =
    "and .txt files.) NOTE: This only works if mysqldump is run on the same "
    "machine as the mysqld server.",
    &path, &path, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"tab-remote",OPT_TABREMOTE,
+   "Create tab-separated textfile for each table to given path from a remote server.",
+   0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"tables", OPT_TABLES, "Overrides option --databases (-B).",
    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"triggers", OPT_TRIGGERS, "Dump triggers for each dumped table.",
@@ -704,7 +709,7 @@ static void write_header(FILE *sql_file, char *db_name)
     fputs(">\n", sql_file);
     check_io(sql_file);
   }
-  else if (!opt_compact)
+  else if (!opt_compact && !opt_tabremote)
   {
     print_comment(sql_file, 0,
                   "-- MySQL dump %s  Distrib %s, for %s (%s)\n--\n",
@@ -759,7 +764,7 @@ static void write_footer(FILE *sql_file)
     fputs("</VOTABLE>\n", sql_file);
     check_io(sql_file);
   }
-  else if (!opt_compact)
+  else if (!opt_compact && !opt_tabremote)
   {
     if (opt_tz_utc)
       fprintf(sql_file,"/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;\n");
@@ -892,6 +897,12 @@ get_one_option(int optid, const struct my_option *opt __attribute__((unused)),
     if(*(char *)&a = 1) {
       change_endian = 1;
     }
+
+    extended_insert= opt_drop= opt_lock=
+      opt_disable_keys= opt_autocommit= opt_create_db= 0;}
+    break;
+  case OPT_TABREMOTE: {
+    opt_tabremote= 1;
 
     extended_insert= opt_drop= opt_lock=
       opt_disable_keys= opt_autocommit= opt_create_db= 0;}
@@ -1036,11 +1047,11 @@ static int get_options(int *argc, char ***argv)
 
   if (opt_delayed)
     opt_lock=0;                         /* Can't have lock with delayed */
-  if (!path && (enclosed || opt_enclosed || escaped || lines_terminated ||
+  if ((!opt_tabremote && !path) && (enclosed || opt_enclosed || escaped || lines_terminated ||
                 fields_terminated))
   {
     fprintf(stderr,
-            "%s: You must use option --tab with --fields-...\n", my_progname);
+            "%s: You must use option --tab / --tab-remote with --fields-...\n", my_progname);
     return(EX_USAGE);
   }
 
@@ -1797,7 +1808,232 @@ static void print_quoted_xml(FILE *xml_file, const char *str, ulong len,
   check_io(xml_file);
 }
 
+/**
+  Escapes and print a string.
 
+  @param tab_file          - Output file.
+  @param str               - String to print.
+  @param len               - Its length.
+
+*/
+
+static void print_tab_element(FILE *tab_file, const char *str, ulong len)
+{
+  const char *end;
+
+  if(escaped == NULL) {
+	  for (end= str + len; str != end; str++)
+	  {
+	    switch (*str) {
+	    case '\0':
+	      fputs("\\0", tab_file);
+	      break;
+	    case '\b':
+	      fputs("\\b", tab_file);
+	      break;
+	    case '\n':
+	      fputs("\\n", tab_file);
+	      break;
+	    case '\r':
+	      fputs("\\r", tab_file);
+	      break;
+	    case '\t':
+	      fputs("\\t", tab_file);
+	      break;
+	    default:
+	      fputc(*str, tab_file);
+	      break;
+	    }
+	  }
+  } else {
+	  for (end= str + len; str != end; str++)
+	  {
+	    switch (*str) {
+	    case '\0':
+	      fputs(escaped, tab_file);
+	      fputc('0', tab_file);
+	      break;
+	    case '\b':
+	      fputs(escaped, tab_file);
+	      fputc('b', tab_file);
+	      break;
+	    case '\n':
+	      fputs(escaped, tab_file);
+	      fputc('n', tab_file);
+	      break;
+	    case '\r':
+	      fputs(escaped, tab_file);
+	      fputc('r', tab_file);
+	      break;
+	    case '\t':
+	      fputs(escaped, tab_file);
+	      fputc('t', tab_file);
+	      break;
+	    default:
+	      fputc(*str, tab_file);
+	      break;
+	    }
+	  }
+  }
+
+  check_io(tab_file);
+}
+
+static void parse_escapedString(const char *in, char *out) {
+	int i, j;
+	memset(out, 0, strlen(in) + 1);
+	
+	for(i=0, j=0; i<=strlen(in); i++, j++) {
+		if(in[i] == '\\') {
+			//candiate for escaping?
+			//works since strlen does not count \0
+			switch(in[i+1]){
+				case 'a':
+					out[j] = '\a';
+					i++;
+					break;
+				case 'b':
+					out[j] = '\b';
+					i++;
+					break;
+				case 'f':
+					out[j] = '\f';
+					i++;
+					break;
+				case 'n':
+					out[j] = '\n';
+					i++;
+					break;
+				case 'r':
+					out[j] = '\r';
+					i++;
+					break;
+				case '\'':
+					out[j] = '\'';
+					i++;
+					break;
+				case '"':
+					out[j] = '\"';
+					i++;
+					break;
+				case '?':
+					out[j] = '\?';
+					i++;
+					break;
+				case '\\':
+					out[j] = '\\';
+					i++;
+					break;
+				case 't':
+					out[j] = '\t';
+					i++;
+					break;
+				case 'v':
+					out[j] = '\v';
+					i++;
+					break;
+				default:
+					out[j] = in[i];
+			}
+		} else {
+		out[j] = in[i];  				
+		}
+	}
+}
+
+
+/**
+  Prints the field terminator for remote tab files
+
+  @param tab_file          - Output file.
+  @param str               - String to print.
+  @param len               - Its length.
+  @param is_attribute_name - A check for attribute name or value.
+
+*/
+
+static void print_tab_fieldTerminator(FILE *tab_file)
+{
+  if(fields_terminated == NULL) {
+  	fputc('\t', tab_file);
+  } else {
+  	//process fieldterminator the first time this is called
+  	if(fieldterm_processed == 0) {
+  		char *tmpStr = (char*)malloc(strlen(fields_terminated) + 1);
+
+  		parse_escapedString(fields_terminated, tmpStr);
+
+		strcpy(fields_terminated, tmpStr);
+		free(tmpStr);
+  		fieldterm_processed = 1;
+  	}
+
+	fprintf(tab_file, "%s", fields_terminated);
+  }
+
+  check_io(tab_file);
+}
+
+static void print_tab_lineTerminator(FILE *tab_file)
+{
+  if(lines_terminated == NULL) {
+  	fputc('\n', tab_file);
+  } else {
+  	//process fieldterminator the first time this is called
+  	if(linesterm_processed == 0) {
+  		char *tmpStr = (char*)malloc(strlen(lines_terminated) + 1);
+
+  		parse_escapedString(lines_terminated, tmpStr);
+
+		strcpy(lines_terminated, tmpStr);
+		free(tmpStr);
+  		linesterm_processed = 1;
+  	}
+
+	fprintf(tab_file, "%s", lines_terminated);
+  }
+
+  check_io(tab_file);
+}
+
+static void print_tab_enclosed(FILE *tab_file, MYSQL_FIELD *field)
+{
+  if(enclosed == NULL && opt_enclosed == NULL) {
+  	return;
+  } else {
+  	//process fieldterminator the first time this is called
+  	if(enclosed_processed == 0) {
+  		char *tmpStr;
+
+  		if(enclosed) {
+  			tmpStr = (char*)malloc(strlen(enclosed) + 1);
+  			parse_escapedString(enclosed, tmpStr);
+  			strcpy(enclosed, tmpStr);
+  		} else {
+  			tmpStr = (char*)malloc(strlen(opt_enclosed) + 1);
+  			parse_escapedString(opt_enclosed, tmpStr);
+  			strcpy(opt_enclosed, tmpStr);
+  		}
+
+		free(tmpStr);
+  		enclosed_processed = 1;
+  	}
+
+  	if(enclosed) {
+		fprintf(tab_file, "%s", enclosed);
+  	} else {
+  		switch(field->type) {
+  			case MYSQL_TYPE_STRING:
+  			case MYSQL_TYPE_VARCHAR:
+  			case MYSQL_TYPE_BLOB:
+  			case MYSQL_TYPE_VAR_STRING:
+  				fprintf(tab_file, "%s", opt_enclosed);
+  		}
+  	}
+  }
+
+  check_io(tab_file);
+}
 /*
   Print xml tag. Optionally add attribute(s).
 
@@ -2173,6 +2409,47 @@ static void print_vo_row(FILE *xml_file, const char *row_name,
     fputs(" />\n", xml_file);
 
   check_io(xml_file);
+}
+
+/*
+  Print remote tabulator delimited row with many attributes (translated).
+
+  SYNOPSIS
+    print_tab_row()
+    tab_file    - output file
+    tableRes    - query result
+    row         - result row
+    str_create  - create statement header string
+
+  DESCRIPTION
+    Print tag with many attribute to the tab_file. Format is:
+      <(opt_)enclosed>escaped(FIELD)<(opt_)enclosed><fields_terminated>....<lines_terminated>
+  NOTE
+    All atributes and values will be escaped if wished.
+*/
+
+static void print_tab_row(FILE *tab_file, 
+                          MYSQL_RES *tableRes, MYSQL_ROW *row,
+                          const char *str_create, int currRow)
+{
+  uint i;
+  MYSQL_FIELD *field;
+  ulong *lengths= mysql_fetch_lengths(tableRes);
+
+  mysql_field_seek(tableRes, 0);
+  for (i= 0; (field= mysql_fetch_field(tableRes)); i++)
+  {
+    if ((*row)[i])
+    {
+        //translate field name
+        if (strncmp(field->name, "Field" , my_min(field->name_length, 5)) == 0) {
+        	print_tab_element(tab_file, (*row)[i], lengths[i]);
+        	break;
+        }
+    }
+  }
+
+  check_io(tab_file);
 }
 
 /**
@@ -2776,7 +3053,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
   if (opt_order_by_primary)
     order_by= primary_key_fields(result_table);
 
-  if (!opt_vo && !opt_xml && !mysql_query_with_error_report(mysql, 0, query_buff))
+  if (!opt_vo && !opt_xml && !opt_tabremote && !mysql_query_with_error_report(mysql, 0, query_buff))
   {
     /* using SHOW CREATE statement */
     if (!opt_no_create_info)
@@ -3038,7 +3315,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
       DBUG_RETURN(0);
 
     /* Make an sql-file, if path was given iow. option -T was given */
-    if (!opt_no_create_info)
+    if (!opt_no_create_info && !opt_tabremote)
     {
       if (path)
       {
@@ -3095,7 +3372,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
       ulong *lengths= mysql_fetch_lengths(result);
       if (init)
       {
-        if (!opt_vo && !opt_xml && !opt_no_create_info)
+        if (!opt_vo && !opt_xml && !opt_tabremote && !opt_no_create_info)
         {
           fputs(",\n",sql_file);
           check_io(sql_file);
@@ -3118,6 +3395,21 @@ static uint get_table_structure(char *table, char *db, char *table_type,
         if (opt_vo) 
         {
           print_vo_row(sql_file, "FIELD", result, &row, NullS, i);
+          continue;
+        }
+        if (opt_tabremote)
+        {
+          MYSQL_FIELD *field= mysql_fetch_field(result);
+          print_tab_enclosed(sql_file, field);
+          print_tab_row(sql_file, result, &row, NullS, i);
+	      print_tab_enclosed(sql_file, field);
+
+          if(i < numCols - 1) {
+          	print_tab_fieldTerminator(sql_file);
+          } else {
+          	print_tab_lineTerminator(sql_file);
+          }
+		  	
           continue;
         }
 
@@ -3191,7 +3483,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
         {
           print_xml_row(sql_file, "key", result, &row, NullS);
           continue;
-        } else if (opt_vo)
+        } else if (opt_vo || opt_tabremote)
           continue;
 
         if (atoi(row[3]) == 1)
@@ -3215,7 +3507,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
         check_io(sql_file);
       }
       mysql_free_result(result);
-      if (!opt_vo && !opt_xml)
+      if (!opt_vo && !opt_xml && !opt_tabremote)
       {
         if (keynr)
           putc(')', sql_file);
@@ -3259,7 +3551,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
             fputs(" -->",sql_file);
             check_io(sql_file);
           }
-          else
+          else if (!opt_tabremote)
           {
             fputs("/*!",sql_file);
             print_value(sql_file,result,row,"engine=","Engine",0);
@@ -3272,7 +3564,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
         mysql_free_result(result);              /* Is always safe to free */
       }
 continue_xml:
-      if (!opt_vo && !opt_xml)
+      if (!opt_vo && !opt_xml && !opt_tabremote)
         fputs(";\n", sql_file);
       else if (opt_xml)
         fputs("\t</table_structure>\n", sql_file);
@@ -3313,7 +3605,7 @@ static void dump_trigger_old(FILE *sql_file, MYSQL_RES *show_triggers_rs,
     print_xml_comment(sql_file, strlen(xml_msg), xml_msg);
     check_io(sql_file);
     DBUG_VOID_RETURN;
-  } else if (opt_vo) {
+  } else if (opt_vo || opt_tabremote) {
     DBUG_VOID_RETURN;
   }
 
@@ -3394,7 +3686,7 @@ static int dump_trigger(FILE *sql_file, MYSQL_RES *show_create_trigger_rs,
                     "SQL Original Statement");
       check_io(sql_file);
       continue;
-    } else if (opt_vo)
+    } else if (opt_vo || opt_tabremote)
       continue;
 
     query_str= cover_definer_clause(row[2], strlen(row[2]),
@@ -3782,21 +4074,24 @@ static void dump_table(char *table, char *db)
   }
   else
   {
-    print_comment(md_result_file, 0,
-                  "\n--\n-- Dumping data for table %s\n--\n",
-                  result_table);
-    
+  	if (!opt_tabremote) 
+  	{
+	    print_comment(md_result_file, 0,
+	                  "\n--\n-- Dumping data for table %s\n--\n",
+	                  result_table);
+	}
+
     dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * FROM ");
     dynstr_append_checked(&query_string, result_table);
 
-    if (where)
+    if (where && !opt_tabremote)
     {
       print_comment(md_result_file, 0, "-- WHERE:  %s\n", where);
 
       dynstr_append_checked(&query_string, " WHERE ");
       dynstr_append_checked(&query_string, where);
     }
-    if (order_by)
+    if (order_by && !opt_tabremote)
     {
       print_comment(md_result_file, 0, "-- ORDER BY:  %s\n", order_by);
 
@@ -3804,7 +4099,7 @@ static void dump_table(char *table, char *db)
       dynstr_append_checked(&query_string, order_by);
     }
 
-    if (!opt_vo && !opt_xml && !opt_compact)
+    if (!opt_vo && !opt_xml && !opt_compact && !opt_tabremote)
     {
       fputs("\n", md_result_file);
       check_io(md_result_file);
@@ -3833,13 +4128,13 @@ static void dump_table(char *table, char *db)
       goto err;
     }
 
-    if (opt_lock)
+    if (opt_lock && !opt_tabremote)
     {
       fprintf(md_result_file,"LOCK TABLES %s WRITE;\n", opt_quoted_table);
       check_io(md_result_file);
     }
     /* Moved disable keys to after lock per bug 15977 */
-    if (opt_disable_keys)
+    if (opt_disable_keys && !opt_tabremote)
     {
       fprintf(md_result_file, "/*!40000 ALTER TABLE %s DISABLE KEYS */;\n",
 	      opt_quoted_table);
@@ -3912,7 +4207,7 @@ static void dump_table(char *table, char *db)
       uint i;
       ulong *lengths= mysql_fetch_lengths(res);
       rownr++;
-      if (!extended_insert && !opt_xml && !opt_vo)
+      if (!extended_insert && !opt_xml && !opt_vo && !opt_tabremote)
       {
         fputs(insert_pat.str,md_result_file);
         check_io(md_result_file);
@@ -3931,7 +4226,8 @@ static void dump_table(char *table, char *db)
         check_io(md_result_file);
       }
 
-      for (i= 0; i < mysql_num_fields(res); i++)
+      int numCols = mysql_num_fields(res);
+      for (i= 0; i < numCols; i++)
       {
         int is_blob;
         ulong length= lengths[i];
@@ -3955,7 +4251,7 @@ static void dump_table(char *table, char *db)
                    field->type == MYSQL_TYPE_LONG_BLOB ||
                    field->type == MYSQL_TYPE_MEDIUM_BLOB ||
                    field->type == MYSQL_TYPE_TINY_BLOB)) ? 1 : 0;
-        if (extended_insert && !opt_xml && !opt_vo)
+        if (extended_insert && !opt_xml && !opt_vo && !opt_tabremote)
         {
           if (i == 0)
             dynstr_set_checked(&extended_row,"(");
@@ -4027,13 +4323,13 @@ static void dump_table(char *table, char *db)
         }
         else
         {
-          if (i && !opt_xml && !opt_vo)
+          if (i && !opt_xml && !opt_vo && !opt_tabremote)
           {
             fputc(',', md_result_file);
             check_io(md_result_file);
           }
           //In VOTable implementation, we handle NULL values differently. Therefore continue...
-          if (row[i] || opt_vo)
+          if (row[i] || opt_vo || opt_tabremote)
           {
             if (!(field->flags & NUM_FLAG))
             {
@@ -4170,14 +4466,59 @@ static void dump_table(char *table, char *db)
                   print_quoted_xml(md_result_file, row[i], length, 0);
                 }
                 fputs("</TD>\n", md_result_file);
-              }               
-              else if (opt_hex_blob && is_blob && length)
-              {
-                fputs("0x", md_result_file);
-                print_blob_as_hex(md_result_file, row[i], length);
               }
-              else
-                unescape(md_result_file, row[i], length);
+              else if (opt_tabremote) 
+              {
+                if (opt_hex_blob && is_blob && length)
+                {
+                  print_blob_as_hex(md_result_file, row[i], length);
+                }
+                else
+                {
+                  if(field->type == MYSQL_TYPE_TIMESTAMP ||
+                     field->type == MYSQL_TYPE_DATE ||
+                     field->type == MYSQL_TYPE_TIME ||
+                     field->type == MYSQL_TYPE_DATETIME) {
+                    //handle dates and convert into proper ISO8601 format
+                    //basically MySQL already got things quite right, we just need
+                    //to add a 'T' in between the date and time
+
+                    //TODO: Caveat: VOTable/ADQL does not support a sole TIME type,
+                    //we therefore will just do it anyways and decode it with an
+                    //xtype="mysql:TIME"
+
+                    if(field->type == MYSQL_TYPE_TIMESTAMP ||
+                       field->type == MYSQL_TYPE_DATETIME) {
+
+                      if(row[i] != NULL) {
+                        char *space = strstr(row[i], " ");
+
+                        if(space != NULL) {
+                          *space = 'T';
+                        }
+                      }
+                    }
+                  }
+
+		          print_tab_enclosed(md_result_file, field);
+                  print_tab_element(md_result_file, row[i], length);
+		          print_tab_enclosed(md_result_file, field);
+
+  				if(i < numCols - 1) {
+					print_tab_fieldTerminator(md_result_file);
+				} else {
+					print_tab_lineTerminator(md_result_file);
+				}
+
+           	  }
+           	}
+          else if (opt_hex_blob && is_blob && length)
+          {
+            fputs("0x", md_result_file);
+            print_blob_as_hex(md_result_file, row[i], length);
+          }
+          else
+            unescape(md_result_file, row[i], length);
             } 
             else
             {
@@ -4224,6 +4565,18 @@ static void dump_table(char *table, char *db)
                 print_quoted_xml(md_result_file, row[i], length, 0);
 
                 fputs("</TD>\n", md_result_file);
+              } 
+              else if (opt_tabremote)
+              {
+	            print_tab_enclosed(md_result_file, field);
+                print_tab_element(md_result_file, row[i], length);
+ 	            print_tab_enclosed(md_result_file, field);
+
+				if(i < numCols - 1) {
+					print_tab_fieldTerminator(md_result_file);
+				} else {
+					print_tab_lineTerminator(md_result_file);
+				}
               } 
               else if (my_isalpha(charset_info, *ptr) ||
                        (*ptr == '-' && my_isalpha(charset_info, ptr[1])))
@@ -4301,7 +4654,7 @@ static void dump_table(char *table, char *db)
       {
         fputs("\t</TR>\n", md_result_file);
         check_io(md_result_file);
-      } 
+      }
 
       if (extended_insert)
       {
@@ -4326,7 +4679,7 @@ static void dump_table(char *table, char *db)
         }
         check_io(md_result_file);
       }
-      else if (!opt_xml && !opt_vo)
+      else if (!opt_xml && !opt_vo && !opt_tabremote)
       {
         fputs(");\n", md_result_file);
         check_io(md_result_file);

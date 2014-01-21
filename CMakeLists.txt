@@ -5,7 +5,7 @@ project (mysqldump_vo)
 #### uncomment this, if you want to specify own mysql path
 ###########################################################
 #set(MYSQL_PATH "/opt/mysql")
-set(MYSQL_SOURCES_PATH "/home/adrpar/Downloads/mysql-5.5.28/")
+set(MYSQL_SOURCES_PATH "/usr/src/mysql/mysql-5.5/")
 
 if(MYSQL_PATH)
     set(MYSQL_CONFIG "${MYSQL_PATH}/bin/mysql_config")
@@ -21,7 +21,7 @@ STRING(REGEX REPLACE "\n" "" MYSQL_INCLUDE_DIR ${MYSQL_INCLUDE_DIR})
 STRING(REGEX REPLACE "\n" "" MYSQL_LIBRARIES ${MYSQL_LIBRARIES})
 STRING(REGEX REPLACE "\n" "" MYSQL_PLUGIN_DIR ${MYSQL_PLUGIN_DIR})
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 add_definitions(-DDBUG_OFF)
 
