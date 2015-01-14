@@ -44,25 +44,21 @@ Dependencies: MySQL sources, cmake
    Note: ONLY MYSQL VERSION 5.5 AND ABOVE ARE CURRENTLY 
    	 SUPPORTED (I.E. TESTED - COULD WORK WITH OTHERS...)
 
-2) edit CMakeList.txt accordingly to point to the directory 
-   where mysql is installed.
+2) copy default.CMakeList.txt to CMakeList.txt and edit it accordingly to point to the directory where mysql is installed and where the mysql sources are located.
 
-3) edit CMakeList.txt accordingly to point to the directory
-   of the mysql sources
-
-4) set CMAKE_INSTALL_PREFIX to the desired location. This will
+3) set CMAKE_INSTALL_PREFIX to the desired location. This will
    install mysqldump_vo in the specified directory.
 
-5) mkdir build
+4) mkdir build
    cd build
 
-6) cmake ..
+5) cmake ..
 
-7) make
+6) make
 
-8) sudo make install
+7) sudo make install
 
-9) DONE: you can now user mysqldump_vo
+DONE: you can now use mysqldump_vo
 
 Usage
 -----
